@@ -33,18 +33,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params
 
-  const { data: campaign } = await supabase.from('campaigns').select('*').eq('id', id).single()
-  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  // 1. Get the campaign
+  const { data: campaign, error: campaignError } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (campaignError || !campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-  const { data: listContacts } = await supabase
+  // 2. Get all contact_ids from the campaign's list
+  const { data: listContacts, error: listError } = await supabase
     .from('list_contacts')
-    .select('contact:contacts(*)')
+    .select('contact_id')
     .eq('list_id', campaign.list_id)
+  if (listError || !listContacts) return NextResponse.json({ error: 'Failed to get contacts' }, { status: 500 })
 
-  if (!listContacts) return NextResponse.json({ error: 'No contacts in list' }, { status: 400 })
+  const contactIds = listContacts.map((lc) => lc.contact_id)
 
-  const contacts = listContacts.map((lc) => lc.contact).filter(Boolean)
+  // 3. Fetch those contacts (only active, not unsubscribed)
+  const { data: contacts, error: contactsError } = await supabase
+    .from('contacts')
+    .select('*')
+    .in('id', contactIds)
+    .eq('unsubscribed', false)
+  if (contactsError) return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 })
 
+  if (!contacts || contacts.length === 0) return NextResponse.json({ error: 'No active contacts in list' }, { status: 400 })
+
+  // 4. Send to each contact
   for (const contact of contacts) {
     try {
       const personalSubject = campaign.subject
@@ -68,7 +84,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  await supabase.from('campaigns').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
+  // 5. Mark campaign as sent
+  await supabase
+    .from('campaigns')
+    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .eq('id', id)
 
   return NextResponse.json({ success: true })
 }
