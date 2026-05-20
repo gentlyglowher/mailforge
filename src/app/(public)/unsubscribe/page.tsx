@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -9,7 +10,7 @@ type UnsubscribeConfig = {
   imageUrl?: string
 }
 
-export default function UnsubscribePage() {
+function UnsubscribeContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email')
   const token = searchParams.get('token')
@@ -17,7 +18,6 @@ export default function UnsubscribePage() {
   const [config, setConfig] = useState<UnsubscribeConfig>({})
 
   useEffect(() => {
-    // Récupère la config publique de la page unsubscribe
     fetch('/api/public/unsubscribe-config')
       .then(res => res.json())
       .then(data => setConfig(data || {}))
@@ -57,5 +57,13 @@ export default function UnsubscribePage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function UnsubscribePage() {
+  return (
+    <Suspense fallback={<div className="text-gray-500">Loading...</div>}>
+      <UnsubscribeContent />
+    </Suspense>
   )
 }
