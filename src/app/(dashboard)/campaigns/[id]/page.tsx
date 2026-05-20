@@ -29,6 +29,7 @@ export default function CampaignDetailPage() {
   const [spamResult, setSpamResult] = useState('')
   const [spamLoading, setSpamLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
     fetchCampaign()
@@ -151,7 +152,20 @@ export default function CampaignDetailPage() {
     setSpamLoading(false)
   }
 
+  const fetchStats = async () => {
+    const res = await fetch(`/api/campaigns/${id}/stats`)
+    if (res.ok) setStats(await res.json())
+  }
+
+  // Call fetchStats after loading campaign (inside useEffect or separate)
+  useEffect(() => {
+    fetchCampaign()
+    fetchStats()
+  }, [])
+  
   if (!campaign) return <div className="p-8">Loading...</div>
+
+
 
   return (
     <div className="space-y-8">
@@ -161,6 +175,27 @@ export default function CampaignDetailPage() {
           ← Back to campaigns
         </button>
       </div>
+
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4 text-center">
+            <p className="text-sm text-gray-500">Sent</p>
+            <p className="text-2xl font-bold">{stats.sent}</p>
+          </Card>
+          <Card className="p-4 text-center">
+            <p className="text-sm text-gray-500">Opened (unique)</p>
+            <p className="text-2xl font-bold">{stats.uniqueOpens}</p>
+          </Card>
+          <Card className="p-4 text-center">
+            <p className="text-sm text-gray-500">Clicked (unique)</p>
+            <p className="text-2xl font-bold">{stats.uniqueClicks}</p>
+          </Card>
+          <Card className="p-4 text-center">
+            <p className="text-sm text-gray-500">Bounces</p>
+            <p className="text-2xl font-bold">{stats.bounces}</p>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left: editor */}

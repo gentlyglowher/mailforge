@@ -59,11 +59,22 @@ export async function GET() {
             html,
           })
 
+          // Log dans email_logs
           await supabase.from('email_logs').insert({
             contact_id: contact.id,
             sequence_step_id: step.id,
             resend_message_id: result.id,
           })
+
+          // Nouveau : événement "sent" pour les statistiques (lié à l'étape de séquence)
+          await supabase.from('email_events').insert({
+            contact_id: contact.id,
+            sequence_step_id: step.id,
+            event_type: 'sent',
+            resend_message_id: result.id,
+            occurred_at: new Date().toISOString(),
+          })
+
         } catch (e) {
           console.error('Failed to send sequence email', e)
         }

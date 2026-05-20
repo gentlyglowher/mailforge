@@ -103,11 +103,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         html: personalHtml,
       })
 
+      // Log dans email_logs (historique)
       await supabase.from('email_logs').insert({
         contact_id: contact.id,
         campaign_id: campaign.id,
         resend_message_id: result.id,
       })
+
+      // Nouveau : événement "sent" pour les statistiques
+      await supabase.from('email_events').insert({
+        contact_id: contact.id,
+        campaign_id: campaign.id,
+        event_type: 'sent',
+        resend_message_id: result.id,
+        occurred_at: new Date().toISOString(),
+      })
+
     } catch (error) {
       console.error('Failed to send to', contact.email, error)
     }
