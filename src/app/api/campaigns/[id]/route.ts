@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email'
+import { appendUnsubscribeLink } from '@/lib/email-utils'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -80,6 +81,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!contacts || contacts.length === 0) return NextResponse.json({ error: 'No active contacts in list' }, { status: 400 })
 
+  // URL de base pour le lien de désabonnement
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   // 4. Envoyer à chaque contact
   for (const contact of contacts) {
     try {
@@ -97,6 +101,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
       }
 
+      // Ajouter le lien de désabonnement automatique
+      personalHtml = await appendUnsubscribeLink(personalHtml, contact.email, baseUrl)
+
       const result = await sendEmail({
         to: contact.email,
         subject: personalSubject,
@@ -110,7 +117,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         resend_message_id: result.id,
       })
 
-      // Nouveau : événement "sent" pour les statistiques
+      // Événement "sent" pour les statistiques
       await supabase.from('email_events').insert({
         contact_id: contact.id,
         campaign_id: campaign.id,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email'
+import { appendUnsubscribeLink } from '@/lib/email-utils'
 
 export async function GET() {
   const supabase = await createClient()
@@ -16,6 +17,9 @@ export async function GET() {
   if (!dueAssignments || dueAssignments.length === 0) {
     return NextResponse.json({ processed: 0 })
   }
+
+  // URL de base pour le lien de désabonnement
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   for (const assignment of dueAssignments) {
     const { data: step } = await supabase
@@ -53,6 +57,9 @@ export async function GET() {
             }
           }
 
+          // Ajouter le lien de désabonnement automatique
+          html = await appendUnsubscribeLink(html, contact.email, baseUrl)
+
           const result = await sendEmail({
             to: contact.email,
             subject,
@@ -66,7 +73,7 @@ export async function GET() {
             resend_message_id: result.id,
           })
 
-          // Nouveau : événement "sent" pour les statistiques (lié à l'étape de séquence)
+          // Événement "sent" pour les statistiques
           await supabase.from('email_events').insert({
             contact_id: contact.id,
             sequence_step_id: step.id,

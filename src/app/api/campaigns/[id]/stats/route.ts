@@ -3,29 +3,31 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
 
-  // Count total sent (we can get from email_events where campaign_id = id and event_type = 'sent')
+  // Sent count
   const { count: sentCount } = await supabase
     .from('email_events')
     .select('*', { count: 'exact', head: true })
     .eq('campaign_id', id)
     .eq('event_type', 'sent')
 
-  // Delivered count
+  // Delivered
   const { count: deliveredCount } = await supabase
     .from('email_events')
     .select('*', { count: 'exact', head: true })
     .eq('campaign_id', id)
     .eq('event_type', 'delivered')
 
-  // Unique opens (by contact)
+  // Unique opens
   const { data: opens } = await supabase
     .from('email_events')
     .select('contact_id')
     .eq('campaign_id', id)
     .eq('event_type', 'opened')
-
   const uniqueOpens = new Set(opens?.map(o => o.contact_id)).size
 
   // Unique clicks
@@ -34,7 +36,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .select('contact_id')
     .eq('campaign_id', id)
     .eq('event_type', 'clicked')
-
   const uniqueClicks = new Set(clicks?.map(c => c.contact_id)).size
 
   // Bounces

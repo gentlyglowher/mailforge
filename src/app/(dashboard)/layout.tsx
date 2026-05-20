@@ -20,6 +20,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/sequences" className="flex items-center px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors">
             <span className="mr-3">🔄</span> Sequences
           </Link>
+          <Link href="/settings" className="flex items-center px-4 py-3 rounded-lg hover:bg-indigo-600 transition-colors">
+            <span className="mr-3">⚙️</span> Settings
+        </Link>
         </nav>
         <div className="p-4 border-t border-indigo-600">
           <SignOutButton />
