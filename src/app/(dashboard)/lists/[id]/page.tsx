@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Card from '@/components/Card'
 
 type Contact = {
   id: string
@@ -54,29 +55,31 @@ export default function ListDetailPage() {
       <h1 className="text-2xl font-bold mb-4">Contacts in List</h1>
 
       {/* Add single contact */}
-      <form onSubmit={addContact} className="bg-white p-4 rounded shadow mb-6 space-y-3">
-        <h2 className="font-semibold">Add a Contact</h2>
-        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border p-2 rounded" required />
-        <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border p-2 rounded" />
-        <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border p-2 rounded" />
-        <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">Add</button>
-      </form>
+      <Card className="mb-6">
+        <form onSubmit={addContact} className="space-y-3">
+          <h2 className="font-semibold">Add a Contact</h2>
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border p-2 rounded" required />
+          <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border p-2 rounded" />
+          <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border p-2 rounded" />
+          <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">Add</button>
+        </form>
+      </Card>
 
       {/* CSV Import */}
-      <div className="bg-white p-4 rounded shadow mb-6 space-y-3">
+      <Card className="mb-6">
         <h2 className="font-semibold">Import CSV</h2>
         <textarea
           placeholder="Paste CSV with headers: email,first_name,last_name"
           value={csvText}
           onChange={e => setCsvText(e.target.value)}
           rows={5}
-          className="w-full border p-2 rounded"
+          className="w-full border p-2 rounded mt-2"
         />
-        <button onClick={importCsv} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500">Import</button>
-      </div>
+        <button onClick={importCsv} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 mt-2">Import</button>
+      </Card>
 
       {/* Contacts table */}
-      <div className="bg-white rounded shadow">
+      <Card>
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
@@ -98,7 +101,7 @@ export default function ListDetailPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Card from '@/components/Card'
 
 type Campaign = {
   id: string
@@ -81,40 +82,41 @@ export default function CampaignsPage() {
     <div>
       <h1 className="text-2xl font-bold mb-4">Campaigns</h1>
 
-      <form onSubmit={createCampaign} className="bg-white p-4 rounded shadow mb-6 space-y-3">
-        <input type="text" placeholder="Campaign name" value={name} onChange={e => setName(e.target.value)} className="w-full border p-2 rounded" required />
-        <input type="text" placeholder="Email subject" value={subject} onChange={e => setSubject(e.target.value)} className="w-full border p-2 rounded" required />
-        <textarea placeholder="Email body (HTML allowed, use {{first_name}} for personalization)" value={body} onChange={e => setBody(e.target.value)} rows={6} className="w-full border p-2 rounded" required />
-        <select value={listId} onChange={e => setListId(e.target.value)} className="w-full border p-2 rounded" required>
-          <option value="">Select a list...</option>
-          {lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
-        </select>
-        <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="w-full border p-2 rounded" />
-        <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">
-          Save Campaign
-        </button>
-      </form>
+      <Card className="mb-6">
+        <form onSubmit={createCampaign} className="space-y-3">
+          <input type="text" placeholder="Campaign name" value={name} onChange={e => setName(e.target.value)} className="w-full border p-2 rounded" required />
+          <input type="text" placeholder="Email subject" value={subject} onChange={e => setSubject(e.target.value)} className="w-full border p-2 rounded" required />
+          <textarea placeholder="Email body (HTML allowed, use {{first_name}} for personalization)" value={body} onChange={e => setBody(e.target.value)} rows={6} className="w-full border p-2 rounded" required />
+          <select value={listId} onChange={e => setListId(e.target.value)} className="w-full border p-2 rounded" required>
+            <option value="">Select a list...</option>
+            {lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
+          </select>
+          <input type="datetime-local" value={schedule} onChange={e => setSchedule(e.target.value)} className="w-full border p-2 rounded" />
+          <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">
+            Save Campaign
+          </button>
+        </form>
+      </Card>
 
       <div className="space-y-4">
         {campaigns.map(c => (
-          <div key={c.id} className="bg-white p-4 rounded shadow flex justify-between items-center">
+          <Card key={c.id} className="flex justify-between items-center">
             <div>
-              <p className="font-semibold">{c.name} – {c.subject}</p>
-              <p className="text-sm text-gray-500">Status: {c.status} {c.scheduled_at ? `(Scheduled: ${new Date(c.scheduled_at).toLocaleString()})` : ''}</p>
+              <Link href={`/campaigns/${c.id}`} className="font-semibold text-indigo-600 hover:underline">
+                {c.name} – {c.subject}
+              </Link>
+              <p className="text-sm text-gray-500">
+                Status: {c.status} {c.scheduled_at ? `(Scheduled: ${new Date(c.scheduled_at).toLocaleString()})` : ''}
+              </p>
             </div>
             <div className="flex gap-2">
               {c.status === 'draft' && (
                 <button onClick={() => sendNow(c.id)} className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-500">Send Now</button>
               )}
-              <button
-                onClick={() => checkSpam(c.id)}
-                className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-400"
-              >
-                Spam Check
-              </button>
+              <button onClick={() => checkSpam(c.id)} className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-400">Spam Check</button>
               <button onClick={() => deleteCampaign(c.id)} className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-500">Delete</button>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

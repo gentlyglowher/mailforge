@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Card from '@/components/Card'
 
 type List = {
   id: string
@@ -43,30 +44,32 @@ export default function ListsPage() {
     <div>
       <h1 className="text-2xl font-bold mb-4">Contact Lists</h1>
 
-      <form onSubmit={createList} className="mb-6 bg-white p-4 rounded shadow space-y-3">
-        <input
-          type="text"
-          placeholder="List name"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          className="w-full rounded border p-2"
-          required
-        />
-        <input
-          type="text"
-          placeholder="Description (optional)"
-          value={newDesc}
-          onChange={(e) => setNewDesc(e.target.value)}
-          className="w-full rounded border p-2"
-        />
-        <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">
-          Create List
-        </button>
-      </form>
+      <Card className="mb-6">
+        <form onSubmit={createList} className="space-y-3">
+          <input
+            type="text"
+            placeholder="List name"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="w-full rounded border p-2 text-gray-900"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Description (optional)"
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            className="w-full rounded border p-2 text-gray-900"
+          />
+          <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">
+            Create List
+          </button>
+        </form>
+      </Card>
 
       <div className="space-y-4">
         {lists.map(list => (
-          <div key={list.id} className="bg-white p-4 rounded shadow flex justify-between items-center">
+          <Card key={list.id} className="flex justify-between items-center">
             <div>
               <Link href={`/lists/${list.id}`} className="text-lg font-semibold text-indigo-600 hover:underline">
                 {list.name}
@@ -74,7 +77,7 @@ export default function ListsPage() {
               <p className="text-sm text-gray-500">{list.description}</p>
             </div>
             <button onClick={() => deleteList(list.id)} className="text-red-600 hover:text-red-800">Delete</button>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
