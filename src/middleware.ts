@@ -25,12 +25,10 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Do not run code between createServerClient and supabase.auth.getUser(), or you may get confusing errors
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // If no user and trying to access a protected route, redirect to /login
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
@@ -46,7 +44,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip all internal Next.js paths and static files unless explicitly matching
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
