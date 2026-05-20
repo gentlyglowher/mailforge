@@ -9,6 +9,7 @@ type Contact = {
   email: string
   first_name: string
   last_name: string
+  custom_fields: Record<string, string>
 }
 
 export default function ListDetailPage() {
@@ -19,22 +20,40 @@ export default function ListDetailPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [csvText, setCsvText] = useState('')
+  const [customFields, setCustomFields] = useState<string[]>([])
+  const [newFieldName, setNewFieldName] = useState('')
+  // Pour le formulaire d'ajout, on a besoin de stocker les valeurs des champs custom
+  const [customValues, setCustomValues] = useState<Record<string, string>>({})
 
   const fetchContacts = async () => {
     const res = await fetch(`/api/lists/${listId}/contacts`)
     if (res.ok) setContacts(await res.json())
   }
 
-  useEffect(() => { fetchContacts() }, [])
+  const fetchCustomFields = async () => {
+    const res = await fetch(`/api/lists/${listId}/fields`)
+    if (res.ok) setCustomFields(await res.json())
+  }
+
+  useEffect(() => {
+    fetchContacts()
+    fetchCustomFields()
+  }, [])
 
   const addContact = async (e: React.FormEvent) => {
     e.preventDefault()
     await fetch(`/api/lists/${listId}/contacts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, first_name: firstName, last_name: lastName }),
+      body: JSON.stringify({
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        custom_fields: customValues,
+      }),
     })
     setEmail(''); setFirstName(''); setLastName('')
+    setCustomValues({})
     fetchContacts()
   }
 
@@ -50,9 +69,62 @@ export default function ListDetailPage() {
     fetchContacts()
   }
 
+  const addCustomField = async () => {
+    if (!newFieldName.trim()) return
+    await fetch(`/api/lists/${listId}/fields`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field_name: newFieldName.trim() }),
+    })
+    setNewFieldName('')
+    fetchCustomFields()
+  }
+
+  const removeCustomField = async (fieldName: string) => {
+    await fetch(`/api/lists/${listId}/fields`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field_name: fieldName }),
+    })
+    fetchCustomFields()
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Contacts in List</h1>
+
+      {/* Custom fields management */}
+      <Card className="mb-6">
+        <h2 className="font-semibold mb-2">Custom Fields for this List</h2>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {customFields.map(field => (
+            <span key={field} className="inline-flex items-center bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm">
+              {field}
+              <button
+                onClick={() => removeCustomField(field)}
+                className="ml-2 text-indigo-600 hover:text-red-600"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="New field name (e.g., company)"
+            value={newFieldName}
+            onChange={e => setNewFieldName(e.target.value)}
+            className="flex-1 border p-2 rounded"
+          />
+          <button onClick={addCustomField} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">
+            Add
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          These fields will appear when adding/importing contacts. Use them as merge tags like {`{{fieldname}}`}.
+        </p>
+      </Card>
 
       {/* Add single contact */}
       <Card className="mb-6">
@@ -61,6 +133,17 @@ export default function ListDetailPage() {
           <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full border p-2 rounded" required />
           <input type="text" placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border p-2 rounded" />
           <input type="text" placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border p-2 rounded" />
+          {/* Dynamic custom fields */}
+          {customFields.map(field => (
+            <input
+              key={field}
+              type="text"
+              placeholder={field}
+              value={customValues[field] || ''}
+              onChange={e => setCustomValues({ ...customValues, [field]: e.target.value })}
+              className="w-full border p-2 rounded"
+            />
+          ))}
           <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">Add</button>
         </form>
       </Card>
@@ -69,7 +152,7 @@ export default function ListDetailPage() {
       <Card className="mb-6">
         <h2 className="font-semibold">Import CSV</h2>
         <textarea
-          placeholder="Paste CSV with headers: email,first_name,last_name"
+          placeholder="Paste CSV with headers: email,first_name,last_name,company,..."
           value={csvText}
           onChange={e => setCsvText(e.target.value)}
           rows={5}
@@ -86,6 +169,9 @@ export default function ListDetailPage() {
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">First Name</th>
               <th className="p-3 text-left">Last Name</th>
+              {customFields.map(field => (
+                <th key={field} className="p-3 text-left capitalize">{field}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -94,10 +180,13 @@ export default function ListDetailPage() {
                 <td className="p-3">{c.email}</td>
                 <td className="p-3">{c.first_name}</td>
                 <td className="p-3">{c.last_name}</td>
+                {customFields.map(field => (
+                  <td key={field} className="p-3">{c.custom_fields?.[field] || ''}</td>
+                ))}
               </tr>
             ))}
             {contacts.length === 0 && (
-              <tr><td className="p-3 text-gray-500" colSpan={3}>No contacts yet.</td></tr>
+              <tr><td className="p-3 text-gray-500" colSpan={3 + customFields.length}>No contacts yet.</td></tr>
             )}
           </tbody>
         </table>

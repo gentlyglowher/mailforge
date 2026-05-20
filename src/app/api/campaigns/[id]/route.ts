@@ -14,6 +14,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return NextResponse.json(data)
 }
 
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await params
+  const body = await request.json()
+  const { name, subject, body: htmlBody } = body
+
+  const { data, error } = await supabase
+    .from('campaigns')
+    .update({ name, subject, body: htmlBody })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,7 +53,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params
 
-  // 1. Get the campaign
+  // 1. Récupérer la campagne
   const { data: campaign, error: campaignError } = await supabase
     .from('campaigns')
     .select('*')
@@ -41,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .single()
   if (campaignError || !campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-  // 2. Get all contact_ids from the campaign's list
+  // 2. Récupérer les ids des contacts de la liste
   const { data: listContacts, error: listError } = await supabase
     .from('list_contacts')
     .select('contact_id')
@@ -50,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const contactIds = listContacts.map((lc) => lc.contact_id)
 
-  // 3. Fetch those contacts (only active, not unsubscribed)
+  // 3. Récupérer les contacts non désabonnés
   const { data: contacts, error: contactsError } = await supabase
     .from('contacts')
     .select('*')
@@ -60,13 +80,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!contacts || contacts.length === 0) return NextResponse.json({ error: 'No active contacts in list' }, { status: 400 })
 
-  // 4. Send to each contact
+  // 4. Envoyer à chaque contact
   for (const contact of contacts) {
     try {
-      const personalSubject = campaign.subject
+      let personalSubject = campaign.subject
       let personalHtml = campaign.body
         .replace(/\{\{first_name\}\}/g, contact.first_name || '')
         .replace(/\{\{last_name\}\}/g, contact.last_name || '')
+
+      // Remplacement des champs personnalisés
+      if (contact.custom_fields) {
+        for (const [key, value] of Object.entries(contact.custom_fields)) {
+          const placeholder = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+          personalSubject = personalSubject.replace(placeholder, value || '')
+          personalHtml = personalHtml.replace(placeholder, value || '')
+        }
+      }
 
       const result = await sendEmail({
         to: contact.email,
@@ -84,31 +113,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  // 5. Mark campaign as sent
+  // 5. Marquer la campagne comme envoyée
   await supabase
     .from('campaigns')
     .update({ status: 'sent', sent_at: new Date().toISOString() })
     .eq('id', id)
 
   return NextResponse.json({ success: true })
-}
-
-export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { id } = await params
-  const body = await request.json()
-  const { name, subject, body: htmlBody } = body
-
-  const { data, error } = await supabase
-    .from('campaigns')
-    .update({ name, subject, body: htmlBody })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { startContactInSequence } from '@/lib/sequences'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -25,13 +26,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params
   const body = await request.json()
-  const { email, first_name, last_name } = body
+  const { email, first_name, last_name, custom_fields } = body // ajout
+
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
 
   // Upsert contact by email
   const { data: contact, error: contactError } = await supabase
     .from('contacts')
-    .upsert({ email, first_name, last_name }, { onConflict: 'email' })
+    .upsert({ email, first_name, last_name, custom_fields: custom_fields || {} }, { onConflict: 'email' })
     .select()
     .single()
 
@@ -43,6 +45,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .upsert({ list_id: id, contact_id: contact.id }, { onConflict: 'list_id,contact_id' })
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 })
+
+  // Après avoir upserté le contact et le lien
+  const { data: triggers } = await supabase
+    .from('sequence_triggers')
+    .select('sequence_id')
+    .eq('list_id', id)
+
+  if (triggers) {
+    for (const trigger of triggers) {
+      await startContactInSequence(contact.id, trigger.sequence_id)
+    }
+  }
 
   return NextResponse.json(contact)
 }

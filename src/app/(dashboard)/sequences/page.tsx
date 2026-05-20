@@ -134,7 +134,8 @@ export default function SequencesPage() {
             </div>
             <div className="flex gap-2">
               <Link href={`/sequences/${seq.id}`} className="text-indigo-600 hover:underline">Manage</Link>
-              <button onClick={() => deleteSequence(seq.id)} className="text-red-600">Delete</button>
+              <Link href={`/sequences/${seq.id}/edit`} className="text-blue-600 hover:underline">Edit</Link>
+              <button onClick={() => deleteSequence(seq.id)} className="cursor-pointer text-red-600">Delete</button>
             </div>
           </Card>
         ))}
