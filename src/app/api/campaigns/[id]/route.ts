@@ -2,36 +2,40 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase.from('campaigns').select('*').eq('id', params.id).single()
+  const { id } = await params
+
+  const { data, error } = await supabase.from('campaigns').select('*').eq('id', id).single()
   if (error) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(data)
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await supabase.from('campaigns').delete().eq('id', params.id)
+  const { id } = await params
+
+  const { error } = await supabase.from('campaigns').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  // Used to trigger sending manually (status = 'sending')
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { campaign } = await supabase.from('campaigns').select('*').eq('id', params.id).single()
+  const { id } = await params
+
+  const { data: campaign } = await supabase.from('campaigns').select('*').eq('id', id).single()
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Get all contacts from the campaign's list
   const { data: listContacts } = await supabase
     .from('list_contacts')
     .select('contact:contacts(*)')
@@ -39,9 +43,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (!listContacts) return NextResponse.json({ error: 'No contacts in list' }, { status: 400 })
 
-  const contacts = listContacts.map(lc => lc.contact).filter(Boolean)
+  const contacts = listContacts.map((lc) => lc.contact).filter(Boolean)
 
-  // Send each email
   for (const contact of contacts) {
     try {
       const personalSubject = campaign.subject
@@ -55,7 +58,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         html: personalHtml,
       })
 
-      // Log the email
       await supabase.from('email_logs').insert({
         contact_id: contact.id,
         campaign_id: campaign.id,
@@ -66,8 +68,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
   }
 
-  // Mark campaign as sent
-  await supabase.from('campaigns').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', params.id)
+  await supabase.from('campaigns').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', id)
 
   return NextResponse.json({ success: true })
 }

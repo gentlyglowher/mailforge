@@ -1,26 +1,29 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
+
   const { data, error } = await supabase
     .from('list_contacts')
     .select('contact:contacts(*)')
-    .eq('list_id', params.id)
+    .eq('list_id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const contacts = data.map(d => d.contact).filter(Boolean)
   return NextResponse.json(contacts)
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   const body = await request.json()
   const { email, first_name, last_name } = body
   if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
@@ -37,7 +40,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Add to list if not already there
   const { error: linkError } = await supabase
     .from('list_contacts')
-    .upsert({ list_id: params.id, contact_id: contact.id }, { onConflict: 'list_id,contact_id' })
+    .upsert({ list_id: id, contact_id: contact.id }, { onConflict: 'list_id,contact_id' })
 
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 })
 
