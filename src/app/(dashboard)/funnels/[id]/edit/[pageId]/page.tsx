@@ -220,7 +220,10 @@ function ButtonBlockContent({ block, selected, onSelect }: {
   )
 }
 
-// ---------------------- Grid Block (with selectable area) ----------------------
+// ---------------------- Grid Block ----------------------
+
+
+
 function GridBlockContent({ block, selected, onSelect, onChange, activeCell, onCellSelect }: {
   block: Block
   selected: boolean
@@ -244,7 +247,7 @@ function GridBlockContent({ block, selected, onSelect, onChange, activeCell, onC
   }
 
   return (
-    <div onClick={onSelect} className="p-4 cursor-pointer" style={{ minHeight: '80px' }}>
+    <div onClick={onSelect} className="outline outline-1 relative cursor-pointer min-h-[80px]">
       <div className="grid border border-gray-300" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {Array.from({ length: rows }).map((_, r) =>
           Array.from({ length: cols }).map((_, c) => {
@@ -267,6 +270,7 @@ function GridBlockContent({ block, selected, onSelect, onChange, activeCell, onC
               >
                 {cell.blocks.map(child => (
                   <div key={child.id} className="mb-1">
+                    {/* Rendu simplifié des enfants */}
                     {child.type === 'TextBlock' && (
                       <div style={{ color: child.props.color, fontSize: `${child.props.fontSize || 16}px`, textAlign: child.props.textAlign }}>
                         {child.props.text || 'Text'}
@@ -482,6 +486,7 @@ function PropertiesPanel({ block, onChange, onMergeCells, onSplitCell, activeCel
       <div className="space-y-2">
         <p className="text-sm font-medium text-gray-600">Content</p>
         {Object.entries(block.props).map(([key, value]) => {
+          // Hide keys that have special UI
           if (['listId', 'redirect', 'textAlign', 'width', 'fontFamily', 'fontSize', 'rows', 'cols', 'cells', 'src', 'objectFit', 'height', 'maxWidth', 'alignment'].includes(key)) return null
           return (
             <div key={key}>
@@ -720,7 +725,7 @@ export default function CustomPageEditor() {
 
   const handleBlockSelect = useCallback((id: string) => {
     setSelectedId(id)
-    setActiveCell(null)
+    setActiveCell(null) // Réinitialise la cellule active quand on sélectionne un bloc
   }, [])
 
   const mergeSelectedCells = useCallback(() => {
@@ -730,6 +735,7 @@ export default function CustomPageEditor() {
     const cells = [...block.props.cells]
     const cellIdx = cells.findIndex(c => c.row === activeCell.row && c.col === activeCell.col)
     if (cellIdx === -1) return
+    // Simple fusion : on augmente le rowspan de la cellule active (exemple)
     cells[cellIdx] = { ...cells[cellIdx], rowspan: 2 }
     updateBlock(selectedId, { ...block.props, cells })
   }, [selectedId, activeCell, blocks, updateBlock])
