@@ -71,30 +71,33 @@ export default function FunnelPagesEditor() {
   }
 
   const addPage = async (type: string) => {
-    // Add a placeholder page locally
     const newPage = {
-        id: `temp-${Date.now()}`,
-        type,
-        order: pages.length,
-        config: {},
-        list_id: null,
-        lead_magnet_url: null,
+      id: `temp-${Date.now()}`,
+      type,
+      order: pages.length,
+      config: {},
+      list_id: null,
+      lead_magnet_url: null,
     }
     const updatedPages = [...pages, newPage]
-    setPages(updatedPages)
-    // Automatically save the funnel to generate a real id for the new page
+    // Sauvegarde immédiate
     const res = await fetch(`/api/funnels/${funnelId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pages: updatedPages.map(p => ({ ...p, id: p.id.startsWith('temp-') ? undefined : p.id })) }),
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pages: updatedPages.map(p => ({
+          ...p,
+          id: p.id.startsWith('temp-') ? undefined : p.id,
+        })),
+      }),
     })
     if (res.ok) {
-        // Refetch the funnel to get the real ids
-        const refreshed = await fetch(`/api/funnels/${funnelId}`)
-        const data = await refreshed.json()
-        setPages(data.pages || [])
+      // Recharger les données pour avoir les vrais IDs
+      const refreshed = await fetch(`/api/funnels/${funnelId}`)
+      const data = await refreshed.json()
+      setPages(data.pages || [])
     } else {
-        alert('Failed to save new page')
+      alert('Failed to add page')
     }
   }
 
