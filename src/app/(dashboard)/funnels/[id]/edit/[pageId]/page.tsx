@@ -220,10 +220,7 @@ function ButtonBlockContent({ block, selected, onSelect }: {
   )
 }
 
-// ---------------------- Grid Block ----------------------
-
-
-
+// ---------------------- Grid Block (with selectable area) ----------------------
 function GridBlockContent({ block, selected, onSelect, onChange, activeCell, onCellSelect }: {
   block: Block
   selected: boolean
@@ -301,6 +298,67 @@ function GridBlockContent({ block, selected, onSelect, onChange, activeCell, onC
             )
           })
         )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------- Sortable wrapper ----------------------
+function SortableBlock({ block, isSelected, onSelect, onChange, activeCell, onCellSelect }: {
+  block: Block
+  isSelected: boolean
+  onSelect: () => void
+  onChange: (props: Record<string, any>) => void
+  activeCell?: { row: number; col: number } | null
+  onCellSelect?: (row: number, col: number) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...styleToString(block.style),
+    position: 'relative',
+  }
+
+  const renderBlock = () => {
+    switch (block.type) {
+      case 'TextBlock':
+        return <TextBlockContent block={block} selected={isSelected} onSelect={onSelect} onChange={onChange} />
+      case 'ImageBlock':
+        return <ImageBlockContent block={block} selected={isSelected} onSelect={onSelect} />
+      case 'VideoBlock':
+        return <VideoBlockContent block={block} selected={isSelected} onSelect={onSelect} />
+      case 'FormBlock':
+        return <FormBlockContent block={block} selected={isSelected} onSelect={onSelect} />
+      case 'ButtonBlock':
+        return <ButtonBlockContent block={block} selected={isSelected} onSelect={onSelect} />
+      case 'GridBlock':
+        return (
+          <GridBlockContent
+            block={block}
+            selected={isSelected}
+            onSelect={onSelect}
+            onChange={onChange}
+            activeCell={activeCell || null}
+            onCellSelect={onCellSelect || (() => {})}
+          />
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={`mb-3 flex items-start ${isSelected ? 'ring-2 ring-indigo-500 rounded' : ''}`}>
+      <div {...listeners} {...attributes} className="mr-2 mt-2 cursor-grab text-gray-400 hover:text-gray-600 flex-shrink-0">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="5" cy="3" r="1.5" /><circle cx="11" cy="3" r="1.5" />
+          <circle cx="5" cy="8" r="1.5" /><circle cx="11" cy="8" r="1.5" />
+          <circle cx="5" cy="13" r="1.5" /><circle cx="11" cy="13" r="1.5" />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        {renderBlock()}
       </div>
     </div>
   )
@@ -424,7 +482,6 @@ function PropertiesPanel({ block, onChange, onMergeCells, onSplitCell, activeCel
       <div className="space-y-2">
         <p className="text-sm font-medium text-gray-600">Content</p>
         {Object.entries(block.props).map(([key, value]) => {
-          // Hide keys that have special UI
           if (['listId', 'redirect', 'textAlign', 'width', 'fontFamily', 'fontSize', 'rows', 'cols', 'cells', 'src', 'objectFit', 'height', 'maxWidth', 'alignment'].includes(key)) return null
           return (
             <div key={key}>
@@ -663,7 +720,7 @@ export default function CustomPageEditor() {
 
   const handleBlockSelect = useCallback((id: string) => {
     setSelectedId(id)
-    setActiveCell(null) // Réinitialise la cellule active quand on sélectionne un bloc
+    setActiveCell(null)
   }, [])
 
   const mergeSelectedCells = useCallback(() => {
@@ -673,7 +730,6 @@ export default function CustomPageEditor() {
     const cells = [...block.props.cells]
     const cellIdx = cells.findIndex(c => c.row === activeCell.row && c.col === activeCell.col)
     if (cellIdx === -1) return
-    // Simple fusion : on augmente le rowspan de la cellule active (exemple)
     cells[cellIdx] = { ...cells[cellIdx], rowspan: 2 }
     updateBlock(selectedId, { ...block.props, cells })
   }, [selectedId, activeCell, blocks, updateBlock])
