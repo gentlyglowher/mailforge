@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@craftjs/core": "^0.2.12",
+    "@craftjs/layers": "^0.2.7",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
     "grapesjs": "^0.22.16",

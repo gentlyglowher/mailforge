@@ -16,13 +16,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   if (error || !funnel) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: steps } = await supabase
-    .from('funnel_steps')
+  const { data: pages } = await supabase
+    .from('funnel_pages')
     .select('*')
     .eq('funnel_id', id)
     .order('order')
 
-  return NextResponse.json({ ...funnel, steps: steps || [] })
+  return NextResponse.json({ ...funnel, pages: pages || [] })
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,8 +32,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   const body = await request.json()
-  const { name, slug, status, steps } = body
+  const { name, slug, status, pages } = body
 
+  // Update funnel meta
   const { error: updateError } = await supabase
     .from('funnels')
     .update({ name, slug, status, updated_at: new Date().toISOString() })
@@ -41,18 +42,26 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
 
-  // Replace steps if provided
-  if (steps && Array.isArray(steps)) {
-    await supabase.from('funnel_steps').delete().eq('funnel_id', id)
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i]
-      const { error } = await supabase.from('funnel_steps').insert({
-        funnel_id: id,
-        order: i,
-        type: step.type,
-        config: step.config || {},
-      })
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Replace pages if provided
+  if (pages && Array.isArray(pages)) {
+    // Delete existing pages
+    await supabase.from('funnel_pages').delete().eq('funnel_id', id)
+
+    // Insert new pages with correct order
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages[i]
+      const { error: insertError } = await supabase
+        .from('funnel_pages')
+        .insert({
+          funnel_id: id,
+          type: p.type,
+          order: i,
+          config: p.config || {},
+          list_id: p.list_id || null,
+          lead_magnet_url: p.lead_magnet_url || null,
+        })
+
+      if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
   }
 

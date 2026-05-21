@@ -1,334 +1,199 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import ReactFlow, {
-  addEdge,
-  Background,
-  Controls,
-  Connection,
-  Edge,
-  Node,
-  useEdgesState,
-  useNodesState,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
-
 import Card from '@/components/Card'
 
-// ----- Node types -----
-const nodeTypes = {
-  landingPage: LandingNode,
-  form: FormNode,
-  sequence: SequenceNode,
-  tag: TagNode,
-  webhook: WebhookNode,
-  wait: WaitNode,
-  condition: ConditionNode,
+type FunnelPage = {
+  id: string
+  type: string
+  order: number
+  config: any
+  list_id: string | null
+  lead_magnet_url: string | null
 }
 
-// Each node component
-function LandingNode({ data }: any) {
-  return (
-    <div className="bg-blue-100 border-2 border-blue-500 rounded px-4 py-2 text-sm font-medium text-blue-800">
-      🌐 Landing Page
-      <div className="text-xs text-gray-600">{data.url || '(no URL)'}</div>
-    </div>
-  )
-}
-function FormNode({ data }: any) {
-  return (
-    <div className="bg-green-100 border-2 border-green-500 rounded px-4 py-2 text-sm font-medium text-green-800">
-      📝 Form
-      <div className="text-xs text-gray-600">{data.listId ? 'List: ' + data.listId : '(no list)'}</div>
-    </div>
-  )
-}
-function SequenceNode({ data }: any) {
-  return (
-    <div className="bg-purple-100 border-2 border-purple-500 rounded px-4 py-2 text-sm font-medium text-purple-800">
-      🔄 Sequence
-      <div className="text-xs text-gray-600">{data.sequenceId ? 'Seq: ' + data.sequenceId : '(no seq)'}</div>
-    </div>
-  )
-}
-function TagNode({ data }: any) {
-  return (
-    <div className="bg-yellow-100 border-2 border-yellow-500 rounded px-4 py-2 text-sm font-medium text-yellow-800">
-      🏷 Tag
-      <div className="text-xs text-gray-600">{data.tag || '(no tag)'}</div>
-    </div>
-  )
-}
-function WebhookNode({ data }: any) {
-  return (
-    <div className="bg-red-100 border-2 border-red-500 rounded px-4 py-2 text-sm font-medium text-red-800">
-      🔗 Webhook
-      <div className="text-xs text-gray-600">{data.url || '(no URL)'}</div>
-    </div>
-  )
-}
-function WaitNode({ data }: any) {
-  return (
-    <div className="bg-gray-100 border-2 border-gray-500 rounded px-4 py-2 text-sm font-medium text-gray-800">
-      ⏳ Wait
-      <div className="text-xs text-gray-600">{data.hours ?? 0} hours</div>
-    </div>
-  )
-}
-function ConditionNode({ data }: any) {
-  return (
-    <div className="bg-orange-100 border-2 border-orange-500 rounded px-4 py-2 text-sm font-medium text-orange-800">
-      ❓ Condition
-      <div className="text-xs text-gray-600">{data.expression || '(no expr)'}</div>
-    </div>
-  )
+type Funnel = {
+  id: string
+  name: string
+  slug: string
+  status: string
+  pages: FunnelPage[]
 }
 
-export default function FunnelEditor() {
+const pageTypeLabels: Record<string, string> = {
+  capture: 'Capture',
+  landing: 'Landing Page',
+  sales: 'Sales Page',
+  thank_you: 'Thank You Page',
+  download: 'Download Page',
+}
+
+export default function FunnelPagesEditor() {
   const params = useParams()
   const funnelId = params.id as string
   const router = useRouter()
 
-  const [funnel, setFunnel] = useState<any>(null)
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [funnel, setFunnel] = useState<Funnel | null>(null)
+  const [pages, setPages] = useState<FunnelPage[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  // Fetch funnel data and rebuild flow
+  // Fetch funnel data
   useEffect(() => {
     const fetchFunnel = async () => {
       const res = await fetch(`/api/funnels/${funnelId}`)
       if (res.ok) {
         const data = await res.json()
         setFunnel(data)
-        // Convert steps to nodes & edges
-        const newNodes: Node[] = (data.steps || []).map((step: any, idx: number) => ({
-          id: step.id,
-          type: step.type,
-          position: { x: 100 + idx * 250, y: 100 + (idx % 2) * 150 },
-          data: step.config || {},
-        }))
-        const newEdges: Edge[] = (data.steps || []).slice(0, -1).map((_: any, idx: number) => ({
-          id: `e${data.steps[idx].id}-${data.steps[idx+1].id}`,
-          source: data.steps[idx].id,
-          target: data.steps[idx+1].id,
-        }))
-        setNodes(newNodes)
-        setEdges(newEdges)
+        setPages(data.pages || [])
       }
       setLoading(false)
     }
     fetchFunnel()
   }, [funnelId])
 
-  // Connection handler
-  const onConnect = useCallback((params: Connection) => setEdges(eds => addEdge(params, eds)), [setEdges])
-
-  // Node click → open config
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node)
-  }, [])
-
-  // Add new step
-  const addStep = (type: string) => {
-    const newId = `temp-${Date.now()}`
-    const newNode: Node = {
-      id: newId,
-      type,
-      position: { x: Math.random() * 400 + 50, y: Math.random() * 300 + 50 },
-      data: {},
+  // Move a page up/down
+  const movePage = (index: number, direction: 'up' | 'down') => {
+    const newPages = [...pages]
+    if (direction === 'up' && index > 0) {
+      ;[newPages[index - 1], newPages[index]] = [newPages[index], newPages[index - 1]]
+    } else if (direction === 'down' && index < pages.length - 1) {
+      ;[newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]]
     }
-    setNodes(nds => [...nds, newNode])
+    setPages(newPages)
   }
 
-  // Save whole funnel
-  const saveFunnel = async () => {
-    // Build steps array with order based on edges (simple linear order for now)
-    const nodeMap = new Map(nodes.map(n => [n.id, n]))
-    // Find start node (no incoming edges)
-    const targetIds = new Set(edges.map(e => e.target))
-    const startNodes = nodes.filter(n => !targetIds.has(n.id))
-    if (startNodes.length === 0) {
-      alert('Please add at least one node')
-      return
-    }
-    const ordered: Node[] = []
-    const visited = new Set()
-    const traverse = (node: Node) => {
-      if (visited.has(node.id)) return
-      visited.add(node.id)
-      ordered.push(node)
-      const outEdges = edges.filter(e => e.source === node.id)
-      for (const e of outEdges) {
-        const target = nodeMap.get(e.target)
-        if (target) traverse(target)
-      }
-    }
-    traverse(startNodes[0]) // simple single path, but can handle branching later
-    const steps = ordered.map((node, idx) => ({
-      id: node.id.startsWith('temp-') ? undefined : node.id, // keep id for existing, new ones will be inserted
-      type: node.type,
-      config: node.data,
-      order: idx,
-    }))
+  // Delete a page
+  const deletePage = (index: number) => {
+    if (!confirm('Delete this page?')) return
+    setPages(pages.filter((_, i) => i !== index))
+  }
 
+  const addPage = async (type: string) => {
+    // Add a placeholder page locally
+    const newPage = {
+        id: `temp-${Date.now()}`,
+        type,
+        order: pages.length,
+        config: {},
+        list_id: null,
+        lead_magnet_url: null,
+    }
+    const updatedPages = [...pages, newPage]
+    setPages(updatedPages)
+    // Automatically save the funnel to generate a real id for the new page
+    const res = await fetch(`/api/funnels/${funnelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pages: updatedPages.map(p => ({ ...p, id: p.id.startsWith('temp-') ? undefined : p.id })) }),
+    })
+    if (res.ok) {
+        // Refetch the funnel to get the real ids
+        const refreshed = await fetch(`/api/funnels/${funnelId}`)
+        const data = await refreshed.json()
+        setPages(data.pages || [])
+    } else {
+        alert('Failed to save new page')
+    }
+  }
+
+  // Save all pages
+  const savePages = async () => {
+    setSaving(true)
     const res = await fetch(`/api/funnels/${funnelId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ steps }),
+      body: JSON.stringify({ pages }),
     })
     if (res.ok) {
-      alert('Funnel saved!')
+      alert('Funnel updated!')
       router.refresh()
     } else {
-      alert('Error saving funnel')
+      alert('Error saving')
     }
-  }
-
-  // Update selected node data
-  const updateNodeData = (field: string, value: any) => {
-    if (!selectedNode) return
-    setNodes(nds => nds.map(n => n.id === selectedNode.id ? { ...n, data: { ...n.data, [field]: value } } : n))
-    setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, [field]: value } })
+    setSaving(false)
   }
 
   if (loading) return <div className="p-8">Loading...</div>
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Edit Funnel: {funnel?.name}</h1>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Pages of: {funnel?.name}</h1>
         <div className="flex gap-2">
-          <button onClick={saveFunnel} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500">Save</button>
-          <button onClick={() => router.push('/funnels')} className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Back</button>
+          <button onClick={savePages} disabled={saving} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-500 disabled:opacity-50">
+            {saving ? 'Saving...' : 'Save Order & Pages'}
+          </button>
+          <button onClick={() => router.push('/funnels')} className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">
+            Back to Funnels
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-1 gap-4">
-        {/* Sidebar with step buttons */}
-        <div className="w-48 bg-white rounded shadow p-4 space-y-2">
-          <p className="font-semibold text-sm mb-2">Add Step</p>
-          {Object.keys(nodeTypes).map(type => (
-            <button
-              key={type}
-              onClick={() => addStep(type)}
-              className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-sm"
-            >
-              + {type.replace('_', ' ')}
-            </button>
-          ))}
-        </div>
-
-        {/* Flow canvas */}
-        <div className="flex-1 bg-white rounded shadow">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            nodeTypes={nodeTypes}
-            fitView
-          >
-            <Background />
-            <Controls />
-          </ReactFlow>
-        </div>
-
-        {/* Config panel for selected node */}
-        {selectedNode && (
-          <div className="w-64 bg-white rounded shadow p-4 space-y-3">
-            <p className="font-semibold">Step Config</p>
-            <p className="text-sm text-gray-500">Type: {selectedNode.type}</p>
-            {/* Dynamically show fields based on type */}
-            {selectedNode.type === 'landing_page' && (
-              <div>
-                <label className="text-sm">Page URL</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.url || ''}
-                  onChange={e => updateNodeData('url', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'form' && (
-              <div>
-                <label className="text-sm">List ID</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.listId || ''}
-                  onChange={e => updateNodeData('listId', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'sequence' && (
-              <div>
-                <label className="text-sm">Sequence ID</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.sequenceId || ''}
-                  onChange={e => updateNodeData('sequenceId', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'tag' && (
-              <div>
-                <label className="text-sm">Tag</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.tag || ''}
-                  onChange={e => updateNodeData('tag', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'webhook' && (
-              <div>
-                <label className="text-sm">Webhook URL</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.url || ''}
-                  onChange={e => updateNodeData('url', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'wait' && (
-              <div>
-                <label className="text-sm">Hours</label>
-                <input
-                  type="number"
-                  value={selectedNode.data.hours || 0}
-                  onChange={e => updateNodeData('hours', Number(e.target.value))}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            {selectedNode.type === 'condition' && (
-              <div>
-                <label className="text-sm">Expression</label>
-                <input
-                  type="text"
-                  value={selectedNode.data.expression || ''}
-                  onChange={e => updateNodeData('expression', e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-            )}
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="text-xs text-gray-500 underline"
-            >
-              Close
-            </button>
+      {/* Add page dropdown */}
+      <Card className="mb-6">
+        <details className="relative">
+          <summary className="bg-indigo-600 text-white px-4 py-2 rounded cursor-pointer inline-block">+ Add Page</summary>
+          <div className="absolute mt-2 bg-white border rounded shadow-lg z-10">
+            {Object.entries(pageTypeLabels).map(([type, label]) => (
+              <button
+                key={type}
+                onClick={() => addPage(type)}
+                className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        )}
+        </details>
+      </Card>
+
+      {/* Page list */}
+      {pages.length === 0 && (
+        <p className="text-gray-500">No pages yet. Add one to start building your funnel.</p>
+      )}
+      <div className="space-y-3">
+        {pages.map((page, idx) => (
+          <Card key={page.id} className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => movePage(idx, 'up')}
+                  disabled={idx === 0}
+                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => movePage(idx, 'down')}
+                  disabled={idx === pages.length - 1}
+                  className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                >
+                  ▼
+                </button>
+              </div>
+              <div>
+                <p className="font-semibold">{pageTypeLabels[page.type] || page.type}</p>
+                <p className="text-xs text-gray-500">Order: {idx + 1}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push(`/funnels/${funnelId}/edit/${page.id}`)}
+                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-500"
+              >
+                Edit Page
+              </button>
+              <button
+                onClick={() => deletePage(idx)}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </Card>
+        ))}
       </div>
     </div>
   )
