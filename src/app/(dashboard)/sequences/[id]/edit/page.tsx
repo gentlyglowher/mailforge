@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Card from '@/components/Card'
+import EmailBuilder from '@/components/EmailBuilder'
 
 type Step = {
   type: 'email' | 'wait'
@@ -26,6 +27,7 @@ export default function EditSequencePage() {
   const [name, setName] = useState('')
   const [steps, setSteps] = useState<Step[]>([])
   const [saving, setSaving] = useState(false)
+  const [builderStepIndex, setBuilderStepIndex] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchSequence = async () => {
@@ -57,9 +59,9 @@ export default function EditSequencePage() {
   const moveStep = (index: number, direction: 'up' | 'down') => {
     const newSteps = [...steps]
     if (direction === 'up' && index > 0) {
-      [newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]]
+      ;[newSteps[index - 1], newSteps[index]] = [newSteps[index], newSteps[index - 1]]
     } else if (direction === 'down' && index < steps.length - 1) {
-      [newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]]
+      ;[newSteps[index], newSteps[index + 1]] = [newSteps[index + 1], newSteps[index]]
     }
     setSteps(newSteps)
   }
@@ -140,22 +142,29 @@ export default function EditSequencePage() {
                 </select>
 
                 {step.type === 'email' ? (
-                  <>
+                  <div className="flex-1 flex flex-col gap-2">
                     <input
                       type="text"
                       placeholder="Subject"
                       value={step.subject || ''}
                       onChange={e => updateStep(idx, 'subject', e.target.value)}
-                      className="flex-1 border p-2 rounded"
+                      className="border p-2 rounded"
                     />
                     <textarea
-                      placeholder="Body"
+                      placeholder="Body (HTML)"
                       value={step.body || ''}
                       onChange={e => updateStep(idx, 'body', e.target.value)}
-                      className="flex-1 border p-2 rounded"
-                      rows={2}
+                      className="border p-2 rounded"
+                      rows={3}
                     />
-                  </>
+                    <button
+                      type="button"
+                      onClick={() => setBuilderStepIndex(idx)}
+                      className="text-xs text-indigo-600 hover:underline self-start"
+                    >
+                      Open Visual Editor
+                    </button>
+                  </div>
                 ) : (
                   <input
                     type="number"
@@ -202,6 +211,22 @@ export default function EditSequencePage() {
       >
         {saving ? 'Saving...' : 'Save Changes'}
       </button>
+
+      {/* Visual Email Builder Modal */}
+      {builderStepIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white w-full max-w-6xl h-[80vh] rounded-xl overflow-hidden shadow-2xl flex flex-col">
+            <EmailBuilder
+              initialHtml={steps[builderStepIndex]?.body || ''}
+              onSave={(html) => {
+                updateStep(builderStepIndex, 'body', html)
+                setBuilderStepIndex(null)
+              }}
+              onClose={() => setBuilderStepIndex(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
